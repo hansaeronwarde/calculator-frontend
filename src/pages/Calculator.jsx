@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Button from "../components/Button";
 import History from "./History";
+import { insertUser, insertTransaction } from "../api/api";
 
 function Calculator() {
   const [input, setInput] = useState("");
@@ -8,10 +9,30 @@ function Calculator() {
   const [operand, setOperand] = useState("");
   const [equation, setEquation] = useState("");
   const [prevInput, setPrevInput] = useState("");
-  const [history, setHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  const [user, setUser] = useState("");
+
+  useEffect(() => {
+    try {
+      getUUID("ios");
+    } catch (err) {
+      console.log(err);
+    }
+  }, []);
 
   const numButtons = ["7", "8", "9", "4", "5", "6", "1", "2", "3", ".", "0"];
   const operandButton = ["÷", "×", "−", "+", "="];
+
+  const getUUID = async (os) => {
+    const response = await insertUser(os);
+    setUser(response.user.uuid);
+  };
+
+  const saveHistory = async (user, equation) => {
+    await insertTransaction(user, equation);
+  };
+
   const clearInput = () => {
     setInput("");
     setAnswer("");
@@ -29,17 +50,6 @@ function Calculator() {
     }
   };
 
-  const handleOperand = (e) => {
-    setOperand(e.target.value);
-    if (prevInput === "") setPrevInput(input);
-    if (prevInput !== "" && input !== "") {
-      let operandAnswer = calculate();
-      setAnswer(operandAnswer);
-      setPrevInput(operandAnswer);
-    }
-    setInput("");
-  };
-
   const toggleSignedInput = () => {
     if (input.includes("-")) {
       setInput(input.replace("-", ""));
@@ -53,14 +63,33 @@ function Calculator() {
   };
 
   const handleEquals = () => {
+    const result = calculate();
+    const resultDecimal =
+      result % 1 === 0 ? result : result.toFixed(5).replace(/0+$/, "");
     setEquation(prevInput + operand + input);
-    setAnswer(calculate());
-    setInput(answer);
+    setAnswer(resultDecimal);
+    setPrevInput(resultDecimal);
+    setInput("");
+
+    const transaction = `${prevInput} ${operand} ${input} =  ${resultDecimal}`;
+    saveHistory(user, transaction);
+  };
+
+  const handleOperand = (e) => {
+    setOperand(e.target.value);
+
+    if (prevInput === "") setPrevInput(input);
+    if (prevInput !== "" && input !== "") {
+      let operandAnswer = calculate();
+      setAnswer(operandAnswer);
+      setPrevInput(operandAnswer);
+    }
+    setInput("");
   };
 
   const handleHistory = () => {
-    setHistory(!history);
-    console.log(history);
+    setShowHistory(!showHistory);
+    console.log(showHistory);
   };
 
   const calculate = () => {
@@ -82,7 +111,7 @@ function Calculator() {
     <>
       <div className="flex h-screen flex-col place-content-center bg-[#292A2D]">
         <div className="self-center">
-          <div className="text-5xl p-2 w-100 h-14 text-[#5B5E67] text-right">
+          <div className="text-5xl p-2 w-100  h-14 text-[#5B5E67] text-right">
             {equation}
           </div>
           <div className="text-8xl p-2 w-100 h-28 overflow-hidden text-white text-right">
@@ -92,7 +121,7 @@ function Calculator() {
             <div>
               <div className="grid grid-cols-3 grid-rows-1">
                 <button
-                  onClick={() => clearInput()}
+                  onClick={clearInput}
                   className="w-24 h-24 bg-[#5B5E67] text-4xl text-white rounded-lg m-1"
                 >
                   AC
@@ -100,14 +129,14 @@ function Calculator() {
                 <button
                   value="+/-"
                   className="w-24 h-24 bg-[#5B5E67] text-4xl text-white rounded-lg m-1"
-                  onClick={() => toggleSignedInput()}
+                  onClick={toggleSignedInput}
                 >
                   +/-
                 </button>
                 <button
                   value="%"
                   className="w-24 h-24 bg-[#5B5E67] text-4xl text-white rounded-lg m-1"
-                  onClick={() => percentInput()}
+                  onClick={percentInput}
                 >
                   %
                 </button>
@@ -149,7 +178,7 @@ function Calculator() {
           </div>
         </div>
       </div>
-      {history && <History onClick={handleHistory}></History>}
+      {showHistory && <History user={user} onClick={handleHistory}></History>}
     </>
   );
 }
